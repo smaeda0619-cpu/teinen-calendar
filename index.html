@@ -1,0 +1,335 @@
+
+
+<!DOCTYPE html>
+
+<html lang="ja">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport"
+
+        content="width=device-width, initial-scale=1">
+
+  <meta name="theme-color" content="#101d2e">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+
+  <title>定年カレンダー</title>
+
+  <style>
+
+    * { box-sizing: border-box; }
+
+    body {
+
+      margin: 0;
+
+      background: #101d2e;
+
+      color: #fff;
+
+      font-family: -apple-system, BlinkMacSystemFont,
+
+        "Helvetica Neue", sans-serif;
+
+    }
+
+    main { max-width: 480px; margin: auto; padding: 24px 18px; }
+
+    h1 { font-size: 28px; margin-bottom: 6px; }
+
+    h2 { font-size: 19px; margin-top: 0; }
+
+    .sub { color: #aebed0; font-size: 13px; }
+
+    .card {
+
+      background: #1c2e43;
+
+      border-radius: 20px;
+
+      padding: 24px;
+
+      margin-top: 18px;
+
+    }
+
+    .center { text-align: center; }
+
+    .number {
+
+      font-size: clamp(42px, 12vw, 64px);
+
+      font-weight: 800;
+
+      color: #efc979;
+
+      margin: 14px 0;
+
+    }
+
+    .money {
+
+      font-size: 34px;
+
+      font-weight: 750;
+
+      color: #80d7b1;
+
+      margin: 12px 0;
+
+    }
+
+    label { display: block; margin: 18px 0; font-size: 14px; }
+
+    input {
+
+      display: block;
+
+      width: 100%;
+
+      padding: 13px;
+
+      margin-top: 7px;
+
+      border: 1px solid #526579;
+
+      border-radius: 10px;
+
+      background: #101d2e;
+
+      color: white;
+
+      font-size: 16px;
+
+      color-scheme: dark;
+
+    }
+
+    .note { font-size: 12px; color: #b0bdcb; line-height: 1.7; }
+
+  </style>
+
+</head>
+
+<body>
+
+<main>
+
+  <p class="sub">RETIREMENT LIFE PLANNER</p>
+
+  <h1>定年カレンダー</h1>
+
+  <p class="sub">定年までの時間を、人生の選択肢に。</p>
+
+  <section class="card center">
+
+    <p>退職予定日まで</p>
+
+    <div class="number" id="days">--</div>
+
+    <p>日</p>
+
+    <p class="sub" id="target">退職予定日：--</p>
+
+  </section>
+
+  <section class="card">
+
+    <p class="sub">退職時の予想金融資産</p>
+
+    <div class="money" id="future">--</div>
+
+    <p class="note">
+
+      毎月末に積み立て、一定利回りで運用した場合の概算。
+
+    </p>
+
+  </section>
+
+  <section class="card">
+
+    <h2>あなたの設定</h2>
+
+    <label>生年月日
+
+      <input id="birthday" type="date" value="1981-06-01">
+
+    </label>
+
+    <label>退職予定年齢（歳）
+
+      <input id="age" type="number" value="65" min="18" max="100">
+
+    </label>
+
+    <label>現在の金融資産（万円）
+
+      <input id="assets" type="number" value="1000" min="0">
+
+    </label>
+
+    <label>毎月の積立額（万円）
+
+      <input id="monthly" type="number" value="5" min="0">
+
+    </label>
+
+    <label>想定年利回り（%）
+
+      <input id="rate" type="number" value="3" min="0" max="20">
+
+    </label>
+
+  </section>
+
+  <p class="note">
+
+    入力情報はこの端末内に保存されます。
+
+    税金・手数料・インフレ・退職金・年金は未反映です。
+
+    この試算は将来の運用成果を保証しません。
+
+  </p>
+
+</main>
+
+<script>
+
+  const ids = ["birthday", "age", "assets", "monthly", "rate"];
+
+  const inputs = Object.fromEntries(
+
+    ids.map(id => [id, document.getElementById(id)])
+
+  );
+
+  try {
+
+    const saved = JSON.parse(localStorage.getItem("teinen-v1"));
+
+    if (saved) {
+
+      ids.forEach(id => {
+
+        if (saved[id] !== undefined) inputs[id].value = saved[id];
+
+      });
+
+    }
+
+  } catch {}
+
+  function calculate() {
+
+    const birthday = inputs.birthday.value;
+
+    const age = Number(inputs.age.value);
+
+    const assets = Number(inputs.assets.value);
+
+    const monthly = Number(inputs.monthly.value);
+
+    const rate = Number(inputs.rate.value);
+
+    if (!birthday || !Number.isInteger(age) ||
+
+        age < 18 || age > 100 ||
+
+        ![assets, monthly, rate].every(Number.isFinite) ||
+
+        assets < 0 || monthly < 0 || rate < 0 || rate > 20) {
+
+      document.getElementById("days").textContent = "--";
+
+      document.getElementById("future").textContent = "--";
+
+      document.getElementById("target").textContent = "入力値を確認してください";
+
+      return;
+
+    }
+
+    const [y, m, d] = birthday.split("-").map(Number);
+
+    const retirement = new Date(y + age, m - 1, d);
+
+    if (retirement.getMonth() !== m - 1) {
+
+      retirement.setDate(0);
+
+    }
+
+    const now = new Date();
+
+    const todayUTC = Date.UTC(
+
+      now.getFullYear(), now.getMonth(), now.getDate()
+
+    );
+
+    const targetUTC = Date.UTC(
+
+      retirement.getFullYear(),
+
+      retirement.getMonth(),
+
+      retirement.getDate()
+
+    );
+
+    const days = Math.max(
+
+      0, Math.round((targetUTC - todayUTC) / 86400000)
+
+    );
+
+    const months = Math.floor(days / 365.2425 * 12);
+
+    const r = rate / 100 / 12;
+
+    const growth = Math.pow(1 + r, months);
+
+    const future = assets * growth +
+
+      (r === 0 ? monthly * months :
+
+       monthly * (growth - 1) / r);
+
+    document.getElementById("days").textContent =
+
+      days.toLocaleString("ja-JP");
+
+    document.getElementById("future").textContent =
+
+      Math.round(future).toLocaleString("ja-JP") + " 万円";
+
+    document.getElementById("target").textContent =
+
+      "退職予定日：" + retirement.toLocaleDateString("ja-JP");
+
+    localStorage.setItem("teinen-v1",
+
+      JSON.stringify(Object.fromEntries(
+
+        ids.map(id => [id, inputs[id].value])
+
+      ))
+
+    );
+
+  }
+
+  ids.forEach(id => inputs[id].addEventListener("input", calculate));
+
+  calculate();
+
+</script>
+
+</body>
+
+</html>
